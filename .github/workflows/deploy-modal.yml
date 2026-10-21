@@ -42,27 +42,21 @@ jobs:
         run: python -m unittest discover -s tests -v
 
       - name: Check Modal deployment credentials
-        id: credentials
         shell: bash
         run: |
           if [[ -z "$MODAL_TOKEN_ID" || -z "$MODAL_TOKEN_SECRET" ]]; then
-            echo "::warning::No deployment performed. Set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in GitHub Actions repository secrets; then run this workflow manually."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "::error::Deployment was NOT performed: MODAL_TOKEN_ID or MODAL_TOKEN_SECRET is missing. Set both as GitHub Actions repository secrets."
+            exit 1
           fi
 
       - name: Install Modal
-        if: steps.credentials.outputs.ready == 'true'
         run: python -m pip install "modal>=1,<2"
 
       - name: Deploy Poe Astra to Modal
-        if: steps.credentials.outputs.ready == 'true'
         run: python -m modal deploy modal_deploy.py
 
-      - name: Next action when deployment is skipped
-        if: steps.credentials.outputs.ready != 'true'
+      - name: Verify app in the deploy token's Modal workspace
         run: |
-          echo "Poe Astra has not been deployed. No credentials were read from the repo."
-          echo "Set GitHub secrets MODAL_TOKEN_ID and MODAL_TOKEN_SECRET."
-          echo "Also create the Modal Secret named poe-astra with POE_ACCESS_KEY and POE_BOT_NAME."
+          python -m modal app info poe-astra
+          echo "App is deployed in the Modal workspace associated with these GitHub secrets."
+          echo "If the app is missing from the Modal browser dashboard, check that the browser shows this same workspace and environment."
