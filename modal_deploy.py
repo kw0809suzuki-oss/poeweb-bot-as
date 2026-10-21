@@ -12,7 +12,7 @@ Never put the values of these secrets in GitHub.
 
 import modal
 
-modal_app = modal.App("poe-astra")
+app = modal.App("poe-astra")
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install("fastapi-poe>=0.0.63,<1")
@@ -20,7 +20,7 @@ image = (
 )
 
 
-@modal_app.function(image=image, secrets=[modal.Secret.from_name("poe-astra")], timeout=120)
+@app.function(image=image, secrets=[modal.Secret.from_name("poe-astra")], timeout=120)
 @modal.asgi_app()
 def fastapi_app():
     from poe_astra.bot import create_app
