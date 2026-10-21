@@ -4,6 +4,30 @@
 
 これは **Poe接続アダプター＋会話方針の初期移設** であり、既存Web版との完全な機能互換はまだない。
 
+## GitHub → Modal → Poe（ブラウザだけで接続する推奨手順）
+
+**Windowsでコードを動かす必要はありません。** `.github/workflows/deploy-modal.yml` が GitHub Actions 上でテストして Modal に配置します。
+
+最初だけ、ブラウザで次の設定を行います。
+
+1. **Modal** にログインし、Workspace の Settings / API Tokens から GitHub Actions用のAPIトークンを作成。表示された **Token ID** と **Token Secret** は他人に渡さない。
+2. **GitHub** の [このリポジトリのActions Secrets](https://github.com/kw0809suzuki-oss/poeweb-bot-as/settings/secrets/actions) で、次の2つを別々の *Repository secret* として登録。
+   - `MODAL_TOKEN_ID` ← ModalのToken ID
+   - `MODAL_TOKEN_SECRET` ← ModalのToken Secret
+3. **Poe** の [Server Bot作成画面](https://poe.com/create_bot?server=1) で Bot Name と Access Key を取得。既存ボットなら編集画面から確認。
+4. **Modal** のダッシュボードの **Secrets** で、名前が **`poe-astra`** のSecretを作る。中に `POE_ACCESS_KEY`（PoeのAccess Key）と `POE_BOT_NAME`（PoeのBot Name）を入れる。必要なら `POE_MODEL` にPoeのモデル名（既定 `GPT-5.4`）を入れる。このPoeキーはGitHubに登録しない。
+5. **GitHub** の [Actions](https://github.com/kw0809suzuki-oss/poeweb-bot-as/actions/workflows/deploy-modal.yml) から **Deploy Poe Astra to Modal** → **Run workflow** を押す。接続情報が設定されていないときはデプロイせず警告を出す。
+6. Workflow成功後に、GitHub Actionsの **Deploy Poe Astra to Modal** のログ、またはModalダッシュボードの **poe-astra** アプリから **HTTPSエンドポイントURL** を確認し、Poeの **Server URL（ボットサーバーリンク）** に貼って保存する。
+7. Poeで短い会話を行い、モデル応答、履歴の扱い、ポイント消費を確認する。**公開運用・機能互換はこの実機試験まで未確認。**
+
+設定後は、`main` のPoeコードが変わるとGitHub Actionsが再配置します。手動実行もできます。デプロイ用トークンは *GitHub Actionsにだけ* 設定し、Poeのボット認証キーは *Modal Secretsにだけ* 設定する構造です。
+
+**注意:** GitHubが「成功」と表示しても、シークレット不足によって配置がスキップされた場合があります。ログに `Deploy Poe Astra to Modal` の実行があることを確認してください。Modalの実行料金やPoeのポイント消費は別途発生する可能性があります。
+
+### ローカルCLIは任意
+
+以下にある `modal deploy` 等のコマンドは開発者向けの代替手順であり、GitHub Actions方式では不要です。
+
 ## 実装内容
 
 - Poeの画面・会話履歴・モデルを利用。モデル呼び出しには Poe Server Bot のリクエストに付属するキーを利用し、利用者のPoeポイントで推論する。
