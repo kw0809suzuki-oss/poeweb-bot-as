@@ -1,0 +1,68 @@
+name: Deploy Poe Astra to Modal
+
+# The deploy runs in GitHub's Linux runner, not on a user's Windows computer.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "poe_astra/**"
+      - "modal_deploy.py"
+      - "requirements.txt"
+      - ".github/workflows/deploy-modal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Do not interrupt an in-flight deployment with a later push.
+concurrency:
+  group: poe-astra-modal-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Validate and deploy
+    runs-on: ubuntu-latest
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - name: Check out Poe Astra
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check syntax
+        run: python -m compileall -q poe_astra modal_deploy.py tests
+
+      - name: Run offline contract tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check Modal deployment credentials
+        id: credentials
+        shell: bash
+        run: |
+          if [[ -z "$MODAL_TOKEN_ID" || -z "$MODAL_TOKEN_SECRET" ]]; then
+            echo "::warning::No deployment performed. Set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in GitHub Actions repository secrets; then run this workflow manually."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Modal
+        if: steps.credentials.outputs.ready == 'true'
+        run: python -m pip install "modal>=1,<2"
+
+      - name: Deploy Poe Astra to Modal
+        if: steps.credentials.outputs.ready == 'true'
+        run: python -m modal deploy modal_deploy.py
+
+      - name: Next action when deployment is skipped
+        if: steps.credentials.outputs.ready != 'true'
+        run: |
+          echo "Poe Astra has not been deployed. No credentials were read from the repo."
+          echo "Set GitHub secrets MODAL_TOKEN_ID and MODAL_TOKEN_SECRET."
+          echo "Also create the Modal Secret named poe-astra with POE_ACCESS_KEY and POE_BOT_NAME."
